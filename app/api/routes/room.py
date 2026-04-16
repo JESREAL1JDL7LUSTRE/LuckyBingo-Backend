@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from app.models.room import (
 	CallNumberRequest,
@@ -29,7 +29,19 @@ async def get_room(room_code: str) -> RoomSnapshot:
 @router.post("/{room_code}/call-number")
 async def call_number(room_code: str, payload: CallNumberRequest) -> dict:
 	normalized_room = room_code.upper()
-	number = await store.call_number(normalized_room, payload.host_id)
+	try:
+		number = await store.call_number(normalized_room, payload.host_id)
+	except HTTPException as exc:
+		if exc.status_code == 400 and exc.detail == "No more numbers available":
+			snapshot = await store.get_room_snapshot(normalized_room)
+			await manager.broadcast_room(
+				normalized_room,
+				{
+					"type": "room_update",
+					"room": snapshot,
+				},
+			)
+		raise
 	snapshot = await store.get_room_snapshot(normalized_room)
 	await manager.broadcast_room(
 		normalized_room,

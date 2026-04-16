@@ -59,6 +59,9 @@ class InMemoryStore:
 				raise HTTPException(status_code=403, detail="Only the host can call numbers")
 			if room["status"] == "finished":
 				raise HTTPException(status_code=400, detail="Game already finished")
+			if not room["remaining_numbers"]:
+				room["status"] = "finished"
+				raise HTTPException(status_code=400, detail="No more numbers available")
 
 			number = draw_number(room["remaining_numbers"])
 			room["status"] = "in_progress"
